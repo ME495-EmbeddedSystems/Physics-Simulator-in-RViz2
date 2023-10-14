@@ -1,0 +1,133 @@
+<robot name="turtle" xmlns:xacro="http://wiki.ros.org/wiki/xacro">
+  <!-- slidebot is a robot that has 1 linear and 1 rotational degree of freedom -->
+
+  <!-- The base from which the body slides -->
+  <xacro:property name="scale" value="0.4" />
+  <xacro:property name="golden" value="1.618" />
+  <xacro:property name="wheel_thickness" value="${scale / golden}" />
+  <xacro:property name="wheel_radius" value="${golden * wheel_thickness / 2}" />
+  <xacro:property name="body_width" value="${golden * scale}" />
+  <xacro:property name="body_height" value="${body_width / golden}" />
+  <xacro:property name="stem_length" value="${wheel_thickness / golden}" />
+  <xacro:property name="stem_radius" value="${0.5 * wheel_thickness / (golden * golden)}" />
+  <xacro:property name="platform_radius" value="${0.5 * body_width * golden}" />
+  <xacro:property name="pole_length" value="${body_height * (golden - 1) / golden}" />
+  <xacro:property name="platform_thickness" value="${pole_length * (golden - 1)}" />
+  <xacro:property name="pole_radius" value="${platform_thickness * golden}" />
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="${body_width} ${body_width} ${body_height}" />
+      </geometry>
+      <material name="base_mat">
+        <color rgba="0 1 0 0.99" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${body_width} ${body_width} ${body_height}" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- the movable body -->
+  <!-- STEM -->
+  <link name="stem">
+    <visual>
+      <origin xyz="0 0 ${-stem_length/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${stem_radius}" length="${stem_length}" />
+      </geometry>
+      <material name="stem_mat">
+        <color rgba="0.5 0.6 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${-stem_length/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${stem_radius}" length="${stem_length}" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="swivel" type="revolute">
+    <origin xyz="0 0 ${-body_height/2}" rpy="0 0 0" />
+    <axis xyz="0 0 1"/>
+    <limit lower="${-pi}" upper="${pi}" effort="100.0" velocity="100.0"/>
+    <parent link="base_link" />
+    <child link="stem" />
+  </joint>
+
+  <link name="wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+      </geometry>
+      <material name="wheel_mat">
+        <color rgba="0.1 0.1 0.1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel_axle" type="continuous">
+    <origin xyz="0 0 ${-stem_length/2 - wheel_radius}" rpy="${pi/2} 0 0" />
+    <axis xyz="0 0 1"/>
+    <parent link="stem" />
+    <child link="wheel" />
+  </joint>
+
+  <link name="pole">
+    <visual>
+      <origin xyz="0 0 ${pole_length/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${pole_radius}" length="${pole_length}" />
+      </geometry>
+      <material name="pole_mat">
+        <color rgba="0.5 0.6 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${pole_length/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${pole_radius}" length="${pole_length}" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base2pole" type="fixed">
+    <origin xyz="0 0 ${body_height/2}" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="pole" />
+  </joint>
+
+  <link name="platform">
+    <visual>
+      <origin xyz="0 0 ${platform_thickness/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${platform_radius}" length="${platform_thickness}" />
+      </geometry>
+      <material name="platform_mat">
+        <color rgba="0.6 0.7 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${platform_thickness/2}" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="${platform_radius}" length="${platform_thickness}" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="tip" type="revolute">
+    <origin xyz="0 0 ${pole_length/2}" rpy="0 0 0" />
+    <axis xyz="0 1 0"/>
+    <limit lower="${-pi}" upper="${pi}" effort="100.0" velocity="100.0"/>
+    <parent link="pole" />
+    <child link="platform" />
+  </joint>
+</robot>
