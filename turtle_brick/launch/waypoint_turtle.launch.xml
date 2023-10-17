@@ -7,7 +7,7 @@
       <param name="robot_description" value="$(command '$(exec-in-pkg xacro xacro) $(find-pkg-share turtle_brick)/turtle.urdf.xacro')" />
     </node>
   
-    <node pkg="turtle_brick" exec="move_turtle" name="move_turtle"/>
+    <node pkg="turtle_brick" exec="waypoint_turtle" name="waypoint_turtle"/>
 
     <!-- The joint state publisher will be launched with a gui, read the urdf from /robot_description
          and publish the joint values on /joint_states -->

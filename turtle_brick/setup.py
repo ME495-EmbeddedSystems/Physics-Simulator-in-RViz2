@@ -9,7 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml','launch/show_turtle.launch.xml','launch/move_turtle.launch.xml','urdf/turtle.urdf.xacro',
+        ('share/' + package_name, ['package.xml','launch/show_turtle.launch.xml','launch/move_turtle.launch.xml','launch/waypoint_turtle.launch.xml','urdf/turtle.urdf.xacro',
                                    'config/view_robot.rviz']),
     ],
     install_requires=['setuptools'],
@@ -21,6 +21,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'move_turtle = turtle_brick.move_turtle:main',
+            'waypoint_turtle = turtle_brick.waypoint_turtle:main'
         ],
     },
 )
