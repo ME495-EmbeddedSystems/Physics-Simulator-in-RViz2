@@ -1,0 +1,4 @@
+<launch>
+    <node exec="arena" pkg="turtle_brick" output="screen" />
+    <include file="$(find-pkg-share turtle_brick)/run_turtle.launch.xml"/>
+</launch>

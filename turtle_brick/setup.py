@@ -11,6 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml','launch/show_turtle.launch.xml','launch/move_turtle.launch.xml','launch/waypoint_turtle.launch.xml','launch/run_turtle.launch.xml',
                                     'launch/arena.launch.xml',
+                                    'launch/turtle_arena.launch.xml',
                                     'urdf/turtle.urdf.xacro',
                                    'config/view_robot.rviz']),
     ],
@@ -26,7 +27,8 @@ setup(
             'move_turtle = turtle_brick.move_turtle:main',
             'waypoint_turtle = turtle_brick.waypoint_turtle:main',
             'run_turtle = turtle_brick.run_turtle:main',
-            'arena = turtle_brick.arena:arena'
+            'arena = turtle_brick.arena:arena',
+            'catcher = turtle_brick.catcher:main'
         ],
     },
 )
