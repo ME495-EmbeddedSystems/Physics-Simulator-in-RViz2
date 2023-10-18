@@ -1,0 +1,6 @@
+<launch>
+    <arg name="use_rviz" default="true" description="Launch rviz (true | false)" />
+    <node exec="arena" pkg="turtle_brick" output="screen" />
+    <node if="$(var use_rviz)" exec="rviz2" pkg="rviz2" args="-d $(find-pkg-share turtle_brick)/arena.rviz" />
+    <!-- <node exec="rviz2" pkg="rviz2" /> -->
+</launch>
