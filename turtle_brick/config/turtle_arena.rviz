@@ -9,6 +9,8 @@ Panels:
         - /RobotModel1
         - /Marker1
         - /Marker1/Topic1
+        - /Marker2
+        - /Marker2/Topic1
       Splitter Ratio: 0.5
     Tree Height: 746
   - Class: rviz_common/Selection
@@ -217,6 +219,19 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /visualization_marker
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Marker
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /unreachable
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -263,7 +278,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 32.63961410522461
+      Distance: 32.384586334228516
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -278,10 +293,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0853981971740723
+      Pitch: 0.340398907661438
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.393574237823486
+      Yaw: 1.0953896045684814
     Saved: ~
 Window Geometry:
   Displays:

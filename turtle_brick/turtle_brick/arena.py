@@ -57,13 +57,13 @@ class Arena(Node):
                                ParameterDescriptor(description="Positive acceleration due to gravity"))
         self.gravity = self.get_parameter("gravity_accel").get_parameter_value().double_value
 
-        self.brick_height = 11.0
+        self.brick_height = 6.0
         self.brick_heightvel = 0
         self.brick_x = 0
         self.brick_y = 0
         self.brick_size = 0.2
         self.flight_time = 0
-        self.predicted_flight_time = (2 * self.brick_height / self.gravity) ** 0.5
+        self.predicted_flight_time = (2 * (self.brick_height - self.platform_height) / self.gravity) ** 0.5
 
         self.arena_breadth = 11.0
         self.arena_length = 11.0
@@ -74,6 +74,7 @@ class Arena(Node):
         self.dtol = 0.05
         self.tilt_angle = -0.1807
         self.platform_radius = 0.3
+        self.unreachable = False
 
         self.state = State.INITIAL
 
@@ -109,9 +110,6 @@ class Arena(Node):
         self.m.pose.position.y = 0.0
         self.m.pose.position.z = 0.0
         self.m.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
-        # self.m.pose.orientation.y = 0.0
-        # self.m.pose.orientation.z = 0.0
-        # self.m.pose.orientation.w = .707
         self.m.color.r = 0.7
         self.m.color.g = 0.05
         self.m.color.b = 0.05
@@ -134,9 +132,6 @@ class Arena(Node):
         self.wall_north.pose.position.y = self.arena_breadth + self.wall_width / 2
         self.wall_north.pose.position.z = self.wall_height / 2
         self.wall_north.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
-        # self.m.pose.orientation.y = 0.0
-        # self.m.pose.orientation.z = 0.0
-        # self.m.pose.orientation.w = .707
         self.wall_north.color.r = 0.8
         self.wall_north.color.g = 0.05
         self.wall_north.color.b = 0.05
@@ -158,9 +153,6 @@ class Arena(Node):
         self.wall_south.pose.position.y = -self.wall_width / 2
         self.wall_south.pose.position.z = self.wall_height / 2
         self.wall_south.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
-        # self.m.pose.orientation.y = 0.0
-        # self.m.pose.orientation.z = 0.0
-        # self.m.pose.orientation.w = .707
         self.wall_south.color.r = 0.8
         self.wall_south.color.g = 0.05
         self.wall_south.color.b = 0.05
@@ -182,9 +174,6 @@ class Arena(Node):
         self.wall_west.pose.position.y = self.arena_breadth / 2
         self.wall_west.pose.position.z = self.wall_height / 2
         self.wall_west.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
-        # self.m.pose.orientation.y = 0.0
-        # self.m.pose.orientation.z = 0.0
-        # self.m.pose.orientation.w = .707
         self.wall_west.color.r = 0.8
         self.wall_west.color.g = 0.05
         self.wall_west.color.b = 0.05
@@ -206,9 +195,6 @@ class Arena(Node):
         self.wall_east.pose.position.y = self.arena_breadth / 2
         self.wall_east.pose.position.z = self.wall_height / 2
         self.wall_east.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
-        # self.m.pose.orientation.y = 0.0
-        # self.m.pose.orientation.z = 0.0
-        # self.m.pose.orientation.w = .707
         self.wall_east.color.r = 0.8
         self.wall_east.color.g = 0.05
         self.wall_east.color.b = 0.05
@@ -330,6 +316,16 @@ class Arena(Node):
 
         elif self.state == State.BRICK_DROPPED:
 
+            speed_req = math.dist([self.brick_x, self.brick_y], [self.homeX, self.homeY]) / self.predicted_flight_time
+
+            if self.speed >= speed_req:
+
+                self.unreachable = False
+            
+            else:
+
+                self.unreachable = True
+
             # self.get_logger().info("Dropped State")
 
             self.brick_height = self.brick_height + self.brick_heightvel * self.dt
@@ -339,16 +335,15 @@ class Arena(Node):
 
             # self.get_logger().info(f"{self.brick_height} -- {self.flight_time} -- {self.predicted_flight_time}")
 
-            if self.brick_height <= self.platform_height:
+            if self.brick_height <= self.platform_height and not self.unreachable:
 
-                # self.get_logger().info("YO")
                 self.brick_height = self.platform_height
                 self.brick_heightvel = 0.0
                 self.state = State.BRICK_CAUGHT
                 self.get_logger().info("Caught Brick")
 
 
-            elif self.brick_height <= 0.0:
+            elif self.brick_height <= 0.0 and self.unreachable:
 
                 self.brick_height = 0.0
                 self.state = State.BRICK_FALLEN

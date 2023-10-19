@@ -4,10 +4,14 @@ from rclpy.node import Node
 import tf2_ros
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from visualization_msgs.msg import Marker, InteractiveMarkerControl, MarkerArray
 from geometry_msgs.msg import TransformStamped, Twist, Vector3, PoseStamped
 from turtle_brick_interfaces.msg import Tilt
 import math
 from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+from .quaternion import angle_axis_to_quaternion
+
 
 class Catcher(Node):
     """Listens to TF frames and logs information based on how they change."""
@@ -58,6 +62,30 @@ class Catcher(Node):
         self.state = 1
         self.dtol = 0.05
 
+        markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+        self.um_pub = self.create_publisher(Marker, "unreachable", markerQoS)
+        self.um = Marker()
+        self.um.header.frame_id = "world"
+        self.um.frame_locked = True
+        self.um.lifetime.sec = 3
+        self.um.header.stamp = self.get_clock().now().to_msg()
+        # self.um.description = "UNREACHABLE"
+        self.um.id = 8
+        self.um.type = Marker.TEXT_VIEW_FACING
+        self.um.text = "UNREACHABLE"
+        self.um.action = Marker.ADD
+        # self.um.scale.x = 1.618 * self.brick_size
+        # self.um.scale.y = 1.618 * 1.618 * self.brick_size
+        self.um.scale.z = 3.0
+        self.um.pose.position.x = 0.0
+        self.um.pose.position.y = 0.0
+        self.um.pose.position.z = 2.0
+        # self.um.pose.orientation = angle_axis_to_quaternion(0, [0, 0, 1])
+        self.um.color.r = 1.0
+        self.um.color.g = 1.0
+        self.um.color.b = 1.0
+        self.um.color.a = 1.0
+
     def timer_callback(self):
         # we listen in a try block.  If a frame has not been published
         # recently enough, then there will be an error and we continue.
@@ -74,7 +102,7 @@ class Catcher(Node):
 
             if abs(self.height - self.prevHeight) > 0.0 and abs(self.height - self.prevHeight) < self.movement_tol and self.state == 1:
 
-                # self.get_logger().info(f"Brick is falling")
+                self.get_logger().info(f"Brick is falling")
 
                 self.targetX = trans.transform.translation.x
                 self.targetY = trans.transform.translation.y
@@ -100,7 +128,9 @@ class Catcher(Node):
                     goalpose.pose.position.x = self.homeX
                     goalpose.pose.position.y = self.homeY
                     self.goal.publish(goalpose)
+                    self.um_pub.publish(self.um)
                     self.state = 5
+
 
             if self.height <= self.platform_height and self.state == 2:
 
@@ -119,6 +149,10 @@ class Catcher(Node):
                 
                 self.get_logger().info("Traveled back")
                 self.state = 4
+
+            if self.state == 5:
+
+                self.get_logger().info("")
 
             self.prevHeight = self.height
 
