@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml','launch/show_turtle.launch.xml','launch/move_turtle.launch.xml','launch/waypoint_turtle.launch.xml','launch/run_turtle.launch.xml',
                                     'launch/arena.launch.xml',
                                     'launch/turtle_arena.launch.xml',
+                                    'launch/show_turtle.launch.py',
                                     'urdf/turtle.urdf.xacro',
                                    'config/view_robot.rviz',
                                    'config/turtle_arena.rviz',
