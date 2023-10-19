@@ -5,13 +5,31 @@ import tf2_ros
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from geometry_msgs.msg import TransformStamped, Twist, Vector3, PoseStamped
+from turtle_brick_interfaces.msg import Tilt
 import math
+from rcl_interfaces.msg import ParameterDescriptor
 
 class Catcher(Node):
     """Listens to TF frames and logs information based on how they change."""
 
     def __init__(self):
         super().__init__("catcher")
+
+        self.declare_parameter("platform_height", 1.5,
+                               ParameterDescriptor(description="Height of robot"))
+        self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
+        
+        self.declare_parameter("wheel_radius", 0.2,
+                               ParameterDescriptor(description="Wheel radius"))
+        self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
+
+        self.declare_parameter("max_velocity", 5.0,
+                               ParameterDescriptor(description="Maximum translational speed of robot"))
+        self.speed = self.get_parameter("max_velocity").get_parameter_value().double_value
+
+        self.declare_parameter("gravity_accel", 9.8,
+                               ParameterDescriptor(description="Positive acceleration due to gravity"))
+        self.gravity = self.get_parameter("gravity_accel").get_parameter_value().double_value
 
         # The buffer stores received tf frames
         self.buffer = Buffer()
@@ -28,16 +46,17 @@ class Catcher(Node):
 
         self.empty = 0
 
-        self.gravity = 9.8
-        self.platform_height = 2.0
         self.predicted_flight_time = 0
-        self.maxspeed = 5
         self.homeX = 5.5
         self.homeY = 5.5
 
         self.goal = self.create_publisher(PoseStamped, "/goal_pose", 10)
 
-        self.updated = False
+        self.tilt = self.create_publisher(Tilt, "tilt", 10)
+        self.setangle = -0.1807
+
+        self.state = 1
+        self.dtol = 0.05
 
     def timer_callback(self):
         # we listen in a try block.  If a frame has not been published
@@ -53,7 +72,7 @@ class Catcher(Node):
             # self.get_logger().info(f"{self.prevHeight}, {self.height}")
             # self.get_logger().info(f"{self.prevHeight - self.height}")
 
-            if abs(self.height - self.prevHeight) > 0.0 and abs(self.height - self.prevHeight) < self.movement_tol and not self.updated:
+            if abs(self.height - self.prevHeight) > 0.0 and abs(self.height - self.prevHeight) < self.movement_tol and self.state == 1:
 
                 # self.get_logger().info(f"Brick is falling")
 
@@ -64,7 +83,7 @@ class Catcher(Node):
 
                 self.speed_req = math.dist([self.targetX, self.targetY], [self.homeX, self.homeY]) / self.predicted_flight_time
 
-                if self.maxspeed >= self.speed_req:
+                if self.speed >= self.speed_req:
 
                     self.get_logger().info("Reachable")
 
@@ -72,7 +91,7 @@ class Catcher(Node):
                     goalpose.pose.position.x = self.targetX
                     goalpose.pose.position.y = self.targetY
                     self.goal.publish(goalpose)
-                    self.updated = True
+                    self.state = 2
 
                 else:
 
@@ -81,8 +100,25 @@ class Catcher(Node):
                     goalpose.pose.position.x = self.homeX
                     goalpose.pose.position.y = self.homeY
                     self.goal.publish(goalpose)
-                    self.updated = True
+                    self.state = 5
 
+            if self.height <= self.platform_height and self.state == 2:
+
+                self.get_logger().info("Caught")
+                goalpose = PoseStamped()
+                goalpose.pose.position.x = self.homeX
+                goalpose.pose.position.y = self.homeY
+                self.goal.publish(goalpose)
+                self.state = 3
+
+            if math.dist([trans.transform.translation.x, trans.transform.translation.y], [self.homeX, self.homeY]) <= self.dtol and self.state == 3:
+
+                self.tiltang = Tilt()
+                self.tiltang.tilt_angle = self.setangle
+                self.tilt.publish(self.tiltang)
+                
+                self.get_logger().info("Traveled back")
+                self.state = 4
 
             self.prevHeight = self.height
 

@@ -12,6 +12,7 @@ from turtlesim.msg import Pose
 from turtle_brick_interfaces.msg import Tilt
 from enum import Enum, auto
 import math
+from rcl_interfaces.msg import ParameterDescriptor
 
 import math
 
@@ -21,6 +22,7 @@ class State(Enum):
     """
     WAITING = auto(),
     CATCHING = auto(),
+    FOCUSING = auto(),
     RETURNING = auto(),
     DROPPING = auto()
 
@@ -52,6 +54,22 @@ class RunTurtle(Node):
         # Static broadcasters publish on /tf_static. We will only need to publish this once
         self.static_broadcaster = StaticTransformBroadcaster(self)
 
+        self.declare_parameter("platform_height", 1.5,
+                               ParameterDescriptor(description="Height of robot"))
+        self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
+        
+        self.declare_parameter("wheel_radius", 0.2,
+                               ParameterDescriptor(description="Wheel radius"))
+        self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
+
+        self.declare_parameter("max_velocity", 5.0,
+                               ParameterDescriptor(description="Maximum translational speed of robot"))
+        self.speed = self.get_parameter("max_velocity").get_parameter_value().double_value
+
+        self.declare_parameter("gravity_accel", 9.8,
+                               ParameterDescriptor(description="Positive acceleration due to gravity"))
+        self.gravity = self.get_parameter("gravity_accel").get_parameter_value().double_value
+
         # Now create the transform, noted that it must have a parent frame and a timestamp
         # The header contains the timing information and frame id
         world_odom_tf = TransformStamped()
@@ -73,10 +91,9 @@ class RunTurtle(Node):
 
         self.homeX = 5.5
         self.homeY = 5.5
-        self.homeZ = 0
+        self.homeZ = 0.957
         # self.world_odom_x = 5.55
         # self.world_odom_y = 5.55
-        self.world_odom_z = 0
         self.state = State.WAITING
         self.dtol = 0.05
 
@@ -86,8 +103,6 @@ class RunTurtle(Node):
         self.static_broadcaster.sendTransform(world_odom_tf)
         self.get_logger().info("Static Transform: world->odom")
 
-        # TO DO
-        self.wheel_radius = 0.2 * 1.618
         self.world_targetX = 5.5
         self.world_targetY = 5.5
 
@@ -95,7 +110,6 @@ class RunTurtle(Node):
         self.targetY = self.world_targetY - self.homeY
 
         # Velocities
-        self.speed = 5
         self.wheel_omg = 5 / self.wheel_radius  # used to control frame movement
         self.swivel_omg = 0.0  # used to control frame movement
         self.vx = self.speed * math.cos(self.theta)
@@ -140,15 +154,24 @@ class RunTurtle(Node):
         elif self.state == State.CATCHING:
 
             # self.get_logger().info("CATCHING")
-
             if math.dist([self.x,self.y],[self.targetX,self.targetY]) <= self.dtol:
 
-                self.state = State.RETURNING
-                self.get_logger().info("Coming Back")
+                self.state = State.FOCUSING
+                self.get_logger().info("Waiting for brick to reach")
+            
+
+        elif self.state == State.FOCUSING:
+
+            self.vx = 0.0
+            self.vy = 0.0
+
+            # if math.dist([self.x,self.y],[self.targetX,self.targetY]) <= self.dtol:
+
+            #     self.state = State.RETURNING
+            #     self.get_logger().info("Coming Back")
 
         elif self.state == State.RETURNING:
 
-            self.get_logger().info(f"{self.x, self.homeX}")
             if math.dist([self.x,self.y],[0,0]) <= self.dtol:
 
                 self.state = State.DROPPING
@@ -235,8 +258,15 @@ class RunTurtle(Node):
         self.targetX = self.world_targetX - self.homeX
         self.targetY = self.world_targetY - self.homeY
 
-        self.state = State.CATCHING
-        self.get_logger().info("Going to goal")
+        if self.state == State.WAITING:
+
+            self.state = State.CATCHING
+            self.get_logger().info("Going to goal")
+
+        elif self.state == State.FOCUSING:
+
+            self.state = State.RETURNING
+            self.get_logger().info("Returning home")
 
     def update_turtlepose(self, data):
 

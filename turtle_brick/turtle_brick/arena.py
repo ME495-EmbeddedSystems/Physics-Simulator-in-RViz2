@@ -12,6 +12,8 @@ from .quaternion import angle_axis_to_quaternion
 from turtle_brick_interfaces.srv import Place
 from enum import Enum, auto
 from std_srvs.srv import Empty
+import math
+from rcl_interfaces.msg import ParameterDescriptor
 
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 
@@ -22,7 +24,10 @@ class State(Enum):
     INITIAL = auto(),
     BRICK_PLACED = auto(),
     BRICK_DROPPED = auto(),
-    BRICK_CAUGHT = auto()
+    BRICK_CAUGHT = auto(),
+    BRICK_FALLEN = auto(),
+    BRICK_SLIDE = auto(),
+    BRICK_FROZEN = auto()
 
 class Arena(Node):
     """
@@ -34,21 +39,41 @@ class Arena(Node):
     """
     def __init__(self):
         super().__init__("arena")
+        self.static_broadcaster = StaticTransformBroadcaster(self)
+
+        self.declare_parameter("platform_height", 1.5,
+                               ParameterDescriptor(description="Height of robot"))
+        self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
+        
+        self.declare_parameter("wheel_radius", 0.2,
+                               ParameterDescriptor(description="Wheel radius"))
+        self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
+
+        self.declare_parameter("max_velocity", 5.0,
+                               ParameterDescriptor(description="Maximum translational speed of robot"))
+        self.speed = self.get_parameter("max_velocity").get_parameter_value().double_value
+
+        self.declare_parameter("gravity_accel", 9.8,
+                               ParameterDescriptor(description="Positive acceleration due to gravity"))
+        self.gravity = self.get_parameter("gravity_accel").get_parameter_value().double_value
 
         self.brick_height = 11.0
         self.brick_heightvel = 0
         self.brick_x = 0
         self.brick_y = 0
-        self.brick_size = 0.5
-        self.gravity = 9.8
+        self.brick_size = 0.2
         self.flight_time = 0
         self.predicted_flight_time = (2 * self.brick_height / self.gravity) ** 0.5
-        self.platform_height = 2
 
         self.arena_breadth = 11.0
         self.arena_length = 11.0
         self.wall_height = 0.5
         self.wall_width = 0.1
+        self.homeX = 5.5
+        self.homeY = 5.5
+        self.dtol = 0.05
+        self.tilt_angle = -0.1807
+        self.platform_radius = 0.3
 
         self.state = State.INITIAL
 
@@ -87,9 +112,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.m.color.r = 0.6
-        self.m.color.g = 0.2
-        self.m.color.b = 0.1
+        self.m.color.r = 0.7
+        self.m.color.g = 0.05
+        self.m.color.b = 0.05
         self.m.color.a = 1.0
         self.pub1.publish(self.m)
 
@@ -112,9 +137,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_north.color.r = 0.6
-        self.wall_north.color.g = 0.2
-        self.wall_north.color.b = 0.1
+        self.wall_north.color.r = 0.8
+        self.wall_north.color.g = 0.05
+        self.wall_north.color.b = 0.05
         self.wall_north.color.a = 1.0
 
         self.walls.markers.append(self.wall_north)
@@ -136,9 +161,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_south.color.r = 0.6
-        self.wall_south.color.g = 0.2
-        self.wall_south.color.b = 0.1
+        self.wall_south.color.r = 0.8
+        self.wall_south.color.g = 0.05
+        self.wall_south.color.b = 0.05
         self.wall_south.color.a = 1.0
 
         self.walls.markers.append(self.wall_south)
@@ -160,9 +185,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_west.color.r = 0.6
-        self.wall_west.color.g = 0.2
-        self.wall_west.color.b = 0.1
+        self.wall_west.color.r = 0.8
+        self.wall_west.color.g = 0.05
+        self.wall_west.color.b = 0.05
         self.wall_west.color.a = 1.0
 
         self.walls.markers.append(self.wall_west)
@@ -184,9 +209,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_east.color.r = 0.6
-        self.wall_east.color.g = 0.2
-        self.wall_east.color.b = 0.1
+        self.wall_east.color.r = 0.8
+        self.wall_east.color.g = 0.05
+        self.wall_east.color.b = 0.05
         self.wall_east.color.a = 1.0
 
         self.walls.markers.append(self.wall_east)
@@ -317,7 +342,8 @@ class Arena(Node):
             if self.brick_height <= self.platform_height:
 
                 # self.get_logger().info("YO")
-                self.brick_height == self.platform_height
+                self.brick_height = self.platform_height
+                self.brick_heightvel = 0.0
                 self.state = State.BRICK_CAUGHT
                 self.get_logger().info("Caught Brick")
 
@@ -346,6 +372,61 @@ class Arena(Node):
             # self.ma_pub.publish(self.walls)
 
         elif self.state == State.BRICK_CAUGHT:
+            
+            self.brick_vx = self.speed * math.cos(math.atan2(self.homeY - self.brick_y, self.homeX - self.brick_x))
+            self.brick_vy = self.speed * math.sin(math.atan2(self.homeY - self.brick_y, self.homeX - self.brick_x))
+
+            self.brick_x = self.brick_x + self.brick_vx * self.dt
+            self.brick_y = self.brick_y + self.brick_vy * self.dt
+
+            if math.dist([self.brick_x,self.brick_y],[self.homeX,self.homeY]) <= self.dtol:
+
+                self.brick_vx = 0
+                self.brick_vy = 0
+                self.state = State.BRICK_SLIDE
+                self.get_logger().info("Brick is ready to dump")
+
+            world_brick_tf = TransformStamped()
+            world_brick_tf.header.stamp = time
+            world_brick_tf.header.frame_id = "world"
+            world_brick_tf.child_frame_id = "brick"
+            world_brick_tf.transform.translation.x = self.brick_x
+            world_brick_tf.transform.translation.y = self.brick_y
+            world_brick_tf.transform.translation.z = self.brick_height
+            self.broadcaster.sendTransform(world_brick_tf)
+
+            self.m.action = Marker.MODIFY
+            self.m.header.stamp = time
+            self.pub1.publish(self.m)
+
+        elif self.state == State.BRICK_SLIDE:
+
+            self.brick_vx = self.brick_vx + math.cos(self.tilt_angle) * math.sin(self.tilt_angle) * self.gravity * self.dt
+            self.brick_heightvel = self.brick_heightvel - math.sin(self.tilt_angle)**2 * self.gravity * self.dt
+
+            self.brick_x = self.brick_x + self.brick_vx * self.dt
+            self.brick_height = self.brick_height + self.brick_heightvel * self.dt
+
+            if math.dist([self.brick_x,self.brick_y],[self.homeX,self.homeY]) > 2 * self.platform_radius:
+
+                self.get_logger().info("Brick Dumped")
+                self.state = State.BRICK_FROZEN
+
+            world_brick_tf = TransformStamped()
+            world_brick_tf.header.stamp = time
+            world_brick_tf.header.frame_id = "world"
+            world_brick_tf.child_frame_id = "brick"
+            world_brick_tf.transform.translation.x = self.brick_x
+            world_brick_tf.transform.translation.y = self.brick_y
+            world_brick_tf.transform.translation.z = self.brick_height
+            world_brick_tf.transform.rotation = angle_axis_to_quaternion(self.tilt_angle, [0, 1, 0])
+            self.broadcaster.sendTransform(world_brick_tf)
+
+            self.m.action = Marker.MODIFY
+            self.m.header.stamp = time
+            self.pub1.publish(self.m)
+
+        elif self.state == State.BRICK_FROZEN:
 
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
