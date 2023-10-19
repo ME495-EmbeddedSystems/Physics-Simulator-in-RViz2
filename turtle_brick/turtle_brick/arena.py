@@ -21,7 +21,8 @@ class State(Enum):
     """
     INITIAL = auto(),
     BRICK_PLACED = auto(),
-    BRICK_DROPPED = auto()
+    BRICK_DROPPED = auto(),
+    BRICK_CAUGHT = auto()
 
 class Arena(Node):
     """
@@ -46,8 +47,8 @@ class Arena(Node):
 
         self.arena_breadth = 11.0
         self.arena_length = 11.0
-        self.wall_height = 1.6
-        self.wall_width = 0.5
+        self.wall_height = 0.5
+        self.wall_width = 0.1
 
         self.state = State.INITIAL
 
@@ -86,9 +87,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.m.color.r = 0.8
-        self.m.color.g = 0.8
-        self.m.color.b = 0.8
+        self.m.color.r = 0.6
+        self.m.color.g = 0.2
+        self.m.color.b = 0.1
         self.m.color.a = 1.0
         self.pub1.publish(self.m)
 
@@ -111,9 +112,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_north.color.r = 0.8
-        self.wall_north.color.g = 0.8
-        self.wall_north.color.b = 0.8
+        self.wall_north.color.r = 0.6
+        self.wall_north.color.g = 0.2
+        self.wall_north.color.b = 0.1
         self.wall_north.color.a = 1.0
 
         self.walls.markers.append(self.wall_north)
@@ -135,9 +136,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_south.color.r = 0.8
-        self.wall_south.color.g = 0.8
-        self.wall_south.color.b = 0.8
+        self.wall_south.color.r = 0.6
+        self.wall_south.color.g = 0.2
+        self.wall_south.color.b = 0.1
         self.wall_south.color.a = 1.0
 
         self.walls.markers.append(self.wall_south)
@@ -159,9 +160,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_west.color.r = 0.8
-        self.wall_west.color.g = 0.8
-        self.wall_west.color.b = 0.8
+        self.wall_west.color.r = 0.6
+        self.wall_west.color.g = 0.2
+        self.wall_west.color.b = 0.1
         self.wall_west.color.a = 1.0
 
         self.walls.markers.append(self.wall_west)
@@ -183,9 +184,9 @@ class Arena(Node):
         # self.m.pose.orientation.y = 0.0
         # self.m.pose.orientation.z = 0.0
         # self.m.pose.orientation.w = .707
-        self.wall_east.color.r = 0.8
-        self.wall_east.color.g = 0.8
-        self.wall_east.color.b = 0.8
+        self.wall_east.color.r = 0.6
+        self.wall_east.color.g = 0.2
+        self.wall_east.color.b = 0.1
         self.wall_east.color.a = 1.0
 
         self.walls.markers.append(self.wall_east)
@@ -277,11 +278,13 @@ class Arena(Node):
 
         if self.state == State.INITIAL:
 
-            self.get_logger().info("Initial State")
+            # self.get_logger().info("Initial State")
+            self.wall_width = 0.5
+
 
         elif self.state == State.BRICK_PLACED:
 
-            self.get_logger().info("Placed State")
+            # self.get_logger().info("Placed State")
 
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
@@ -302,24 +305,28 @@ class Arena(Node):
 
         elif self.state == State.BRICK_DROPPED:
 
-            self.get_logger().info("Dropped State")
+            # self.get_logger().info("Dropped State")
 
             self.brick_height = self.brick_height + self.brick_heightvel * self.dt
             self.brick_heightvel = self.brick_heightvel - self.gravity * self.dt
 
             self.flight_time = self.flight_time + self.dt
 
-            self.get_logger().info(f"{self.brick_height} -- {self.flight_time} -- {self.predicted_flight_time}")
+            # self.get_logger().info(f"{self.brick_height} -- {self.flight_time} -- {self.predicted_flight_time}")
 
             if self.brick_height <= self.platform_height:
 
-                self.brick_height = self.platform_height
+                # self.get_logger().info("YO")
+                self.brick_height == self.platform_height
                 self.state = State.BRICK_CAUGHT
+                self.get_logger().info("Caught Brick")
 
-            elif self.self.brick_height <= 0:
 
-                self.brick_height = 0
+            elif self.brick_height <= 0.0:
+
+                self.brick_height = 0.0
                 self.state = State.BRICK_FALLEN
+                self.get_logger().info("Brick Fell :(")
 
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
@@ -339,8 +346,6 @@ class Arena(Node):
             # self.ma_pub.publish(self.walls)
 
         elif self.state == State.BRICK_CAUGHT:
-
-            self.get_logger().info("Caught State")
 
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time

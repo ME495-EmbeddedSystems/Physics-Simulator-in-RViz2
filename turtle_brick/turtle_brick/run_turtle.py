@@ -3,14 +3,26 @@ from rclpy.node import Node
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped, Twist, Vector3, PoseStamped
+from tf2_ros.transform_listener import TransformListener
 from math import pi
 from .quaternion import angle_axis_to_quaternion
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 from turtlesim.msg import Pose
 from turtle_brick_interfaces.msg import Tilt
+from enum import Enum, auto
+import math
 
 import math
+
+class State(Enum):
+    """ Current state of the system.
+        Determines what the main timer function should be doing on each iteration.
+    """
+    WAITING = auto(),
+    CATCHING = auto(),
+    RETURNING = auto(),
+    DROPPING = auto()
 
 def turtle_twist(xdot, ydot, omega):
     """ Create a twist suitable for a turtle.
@@ -59,29 +71,35 @@ class RunTurtle(Node):
         self.z = 0
         self.theta = 0
 
-        self.world_odom_x = 5.55
-        self.world_odom_y = 5.55
+        self.homeX = 5.5
+        self.homeY = 5.5
+        self.homeZ = 0
+        # self.world_odom_x = 5.55
+        # self.world_odom_y = 5.55
         self.world_odom_z = 0
+        self.state = State.WAITING
+        self.dtol = 0.05
 
-        world_odom_tf.transform.translation.x = float(self.world_odom_x)
-        world_odom_tf.transform.translation.y = float(self.world_odom_y)
-        world_odom_tf.transform.translation.z = float(self.world_odom_z)
+        world_odom_tf.transform.translation.x = float(self.homeX)
+        world_odom_tf.transform.translation.y = float(self.homeY)
+        world_odom_tf.transform.translation.z = float(self.homeZ)
         self.static_broadcaster.sendTransform(world_odom_tf)
         self.get_logger().info("Static Transform: world->odom")
 
         # TO DO
         self.wheel_radius = 0.2 * 1.618
-        self.world_targetX = 9
-        self.world_targetY = 7
+        self.world_targetX = 5.5
+        self.world_targetY = 5.5
 
-        self.targetX = self.world_targetX - self.world_odom_x
-        self.targetY = self.world_targetY - self.world_odom_y
+        self.targetX = self.world_targetX - self.homeX
+        self.targetY = self.world_targetY - self.homeY
 
         # Velocities
-        self.wheel_omg = 0.8  # used to control frame movement
+        self.speed = 5
+        self.wheel_omg = 5 / self.wheel_radius  # used to control frame movement
         self.swivel_omg = 0.0  # used to control frame movement
-        self.vx = self.wheel_radius * self.wheel_omg * math.cos(self.theta)
-        self.vy = self.wheel_radius * self.wheel_omg * math.sin(self.theta)
+        self.vx = self.speed * math.cos(self.theta)
+        self.vy = self.speed * math.sin(self.theta)
 
         # create the broadcaster
         self.broadcaster = TransformBroadcaster(self)
@@ -114,8 +132,42 @@ class RunTurtle(Node):
 
         time = self.get_clock().now().to_msg()
 
+        if self.state == State.WAITING:
+
+            self.vx = 0.0
+            self.vy = 0.0
+
+        elif self.state == State.CATCHING:
+
+            # self.get_logger().info("CATCHING")
+
+            if math.dist([self.x,self.y],[self.targetX,self.targetY]) <= self.dtol:
+
+                self.state = State.RETURNING
+                self.get_logger().info("Coming Back")
+
+        elif self.state == State.RETURNING:
+
+            self.get_logger().info(f"{self.x, self.homeX}")
+            if math.dist([self.x,self.y],[0,0]) <= self.dtol:
+
+                self.state = State.DROPPING
+                self.get_logger().info("Reached home")
+
+            else:
+
+                self.world_targetX = self.homeX
+                self.world_targetY = self.homeY
+
+                self.targetX = self.world_targetX - self.homeX
+                self.targetY = self.world_targetY - self.homeY
+                
+        elif self.state == State.DROPPING:
+
+            self.state = State.WAITING
+            self.x = self.x
+
         # Calculate various relative positions
-        self.wheel_pos = float(self.wheel_pos + self.wheel_omg * self.dt)
         self.wheel_pos = float(self.wheel_pos + self.wheel_omg * self.dt)
 
         # self.tip_pos = -0.187 if self.tip else 0
@@ -127,11 +179,6 @@ class RunTurtle(Node):
         # self.theta = math.atan2(math.sin(self.theta + self.swivel_omg * self.dt), math.cos(self.theta + self.swivel_omg * self.dt))
 
         # self.get_logger().info(f"X: {self.x}, Y: {self.y}, theta {math.degrees(self.theta)}")
-
-        # Update velocities
-        self.theta = math.atan2(self.targetY - self.y, self.targetX - self.x)
-        self.vx = self.wheel_radius * self.wheel_omg * math.cos(self.theta)
-        self.vy = self.wheel_radius * self.wheel_omg * math.sin(self.theta)
 
         # Format and publish joint state messages
         joints_states_msg = JointState()
@@ -173,29 +220,23 @@ class RunTurtle(Node):
         self.cmdvel.publish(cmdvel_msg)
         # self.get_logger().info(f"{cmdvel_msg}")
 
-
-        # base_right = TransformStamped()
-        # base_right.header.frame_id = "base"
-        # base_right.child_frame_id = "right"
-        # base_right.transform.translation.x = float(self.dx)
-        # base_right.transform.rotation = angle_axis_to_quaternion(radians, [0, 0, -1.0])
-
-        # # don't forget to put a timestamp
-        # time = self.get_clock().now().to_msg()
-        # base_right.header.stamp = time
-        # base_left.header.stamp = time
-
-        # self.broadcaster.sendTransform(base_left)
-        # self.broadcaster.sendTransform(base_right)
-
-        # # update the movement
-        # self.dx -= 1
-        # if self.dx == 0:
-            # self.dx = 10
+        # Update velocities
+        self.theta = math.atan2(self.targetY - self.y, self.targetX - self.x)
+        self.vx = self.speed * math.cos(self.theta)
+        self.vy = self.speed * math.sin(self.theta)
 
     def update_goalpose(self, data):
 
         self.goalpose = data
+
+        self.world_targetX = self.goalpose.pose.position.x 
+        self.world_targetY = self.goalpose.pose.position.y
+
+        self.targetX = self.world_targetX - self.homeX
+        self.targetY = self.world_targetY - self.homeY
+
+        self.state = State.CATCHING
+        self.get_logger().info("Going to goal")
 
     def update_turtlepose(self, data):
 
