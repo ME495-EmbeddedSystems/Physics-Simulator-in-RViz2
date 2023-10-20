@@ -418,16 +418,23 @@ class Arena(Node):
         """ Place brick at desired position.
 
             Args:
-                data (PoseStamped) : Time-stamped pose of target where the x and y positions correspond to the brick's location for catching, and the home position for returning.
+                request (float request.x, float request.y) : Time-stamped pose of target where the x and y positions correspond to the brick's location for catching, and the home position for returning.
+                response : empty
+
+            Returns:
+                response : empty
         """
 
         self.get_logger().info("Placing Brick")
 
+        # Current time at service call.
         time = self.get_clock().now().to_msg()
 
+        # Initialize x and y position of brick.
         self.brick_x = request.x
         self.brick_y = request.y
 
+        # Broadcast world->brick transform and publish brick marker.
         world_brick_tf = TransformStamped()
         world_brick_tf.header.stamp = self.get_clock().now().to_msg()
         world_brick_tf.header.frame_id = "world"
@@ -436,20 +443,18 @@ class Arena(Node):
         world_brick_tf.transform.translation.y = request.y
         world_brick_tf.transform.translation.z = self.brick_height
         self.broadcaster.sendTransform(world_brick_tf)
-
         self.m.action = Marker.MODIFY
         self.m.header.stamp = time
         self.pub1.publish(self.m)
 
-        # self.walls.markers.action = Marker.MODIFY
-        # self.walls.header.stamp = time
-        # self.ma_pub.publish(self.walls)
-
+        # Change state of brick to placed.
         self.state = State.BRICK_PLACED
 
         return response
 
     def drop_callback(self, request, response):
+        """ Drop brick from placed position. Empty type service.
+        """
 
         self.get_logger().info("Dropping Brick")
 
