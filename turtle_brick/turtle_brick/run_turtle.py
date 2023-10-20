@@ -1,4 +1,4 @@
-"""A node that drives the turtle robot to goalposes and back, after which the turtle dumps the brick. """
+"""A node that drives the turtle robot and turtlesim to goalposes and back, after which the turtle robot dumps the brick. """
 
 import rclpy
 from rclpy.node import Node
@@ -55,12 +55,12 @@ class RunTurtle(Node):
         tip
 
     PUBLISHES:
-        /joint_states : Joint states of the turtle robot
-        /odom : Time-stamped pose and twist 
+        joint_states : Joint states of the turtle robot
+        odom : Time-stamped pose and twist 
         cmd_vel : Twist of turtlesim
 
     SUBSCRIBES:
-        /goal_pose : 
+        goal_pose : 
         turtle1/pose :
         tilt :
 
