@@ -55,14 +55,14 @@ class RunTurtle(Node):
         tip
 
     PUBLISHES:
-    /joint_states : Joint states of the turtle robot
-    /odom : Time-stamped pose and twist 
-    cmd_vel : Twist of turtlesim
+        /joint_states : Joint states of the turtle robot
+        /odom : Time-stamped pose and twist 
+        cmd_vel : Twist of turtlesim
 
     SUBSCRIBES:
-    /goal_pose : 
-    turtle1/pose :
-    tilt :
+        /goal_pose : 
+        turtle1/pose :
+        tilt :
 
     """
 
@@ -81,7 +81,7 @@ class RunTurtle(Node):
                                ParameterDescriptor(description="Wheel radius"))
         self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
 
-        # Maximum trasnlational speed of robot
+        # Maximum translational speed of robot
         self.declare_parameter("max_velocity", 5.0,
                                ParameterDescriptor(description="Maximum translational speed of robot"))
         self.speed = self.get_parameter("max_velocity").get_parameter_value().double_value

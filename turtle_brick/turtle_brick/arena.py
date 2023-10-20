@@ -29,56 +29,69 @@ class State(Enum):
     BRICK_FROZEN = auto()
 
 class Arena(Node):
-    """
-    PUBLISHES:
-    visualization_marker (visualization_messages/msg/Marker) - The markers that we are drawing
+    """ 
+    Renders the walls of the arena as a marker array, renders the brick as a marker and simulates its physics.
 
-    SUBSCRIBES:
-    Subscribes: to an interactive marker server
+    PUBLISHES:
+        visualization_marker (visualization_messages/msg/Marker) : A Marker representing the brick.
+        visualization_marker_array (visualization_messages/msg/MarkerArray) : A Marker representing the arena walls.
+
+    SERVICES:
+        place : places brick at desired location.
+        drop : drops brick from placed location.
+
     """
     def __init__(self):
         super().__init__("arena")
-        self.static_broadcaster = StaticTransformBroadcaster(self)
 
+        # Retreive parametrs defined in config/turtle.yaml.
+
+        # Height of the robot
         self.declare_parameter("platform_height", 1.5,
                                ParameterDescriptor(description="Height of robot"))
         self.platform_height = self.get_parameter("platform_height").get_parameter_value().double_value
         
+        # Wheel radius
         self.declare_parameter("wheel_radius", 0.2,
                                ParameterDescriptor(description="Wheel radius"))
         self.wheel_radius = self.get_parameter("wheel_radius").get_parameter_value().double_value
 
+        # Maximum translational speed of robot
         self.declare_parameter("max_velocity", 5.0,
                                ParameterDescriptor(description="Maximum translational speed of robot"))
         self.speed = self.get_parameter("max_velocity").get_parameter_value().double_value
 
+        # Downwards acceleration due to gravity
         self.declare_parameter("gravity_accel", 9.8,
                                ParameterDescriptor(description="Positive acceleration due to gravity"))
         self.gravity = self.get_parameter("gravity_accel").get_parameter_value().double_value
 
-        self.brick_height = 6.0
-        self.brick_heightvel = 0
-        self.brick_x = 0
-        self.brick_y = 0
-        self.brick_size = 0.2
-        self.flight_time = 0
-        self.predicted_flight_time = (2 * (self.brick_height - self.platform_height) / self.gravity) ** 0.5
 
-        self.arena_breadth = 11.0
-        self.arena_length = 11.0
-        self.wall_height = 0.5
-        self.wall_width = 0.1
-        self.homeX = 5.5
-        self.homeY = 5.5
-        self.dtol = 0.05
-        self.tilt_angle = -0.1807
-        self.platform_radius = 0.3
-        self.unreachable = False
+        # Initialize brick variables.
+        self.brick_height = 6.0 # Height from ground till base of the brick
+        self.brick_x = 0 # X-Position of brick in world frame
+        self.brick_y = 0 # Y-POsition of brick in world frame
+        self.brick_size = 0.2 # Size of brick (Z-axis)
+        self.brick_heightvel = 0 # Inital downward velocity of brick
+        self.predicted_flight_time = (2 * (self.brick_height - self.platform_height) / self.gravity) ** 0.5 # Time taken to fall to the ground
 
-        self.state = State.INITIAL
+        self.arena_breadth = 11.0 # Breadth of arena (Along Y-axis)
+        self.arena_length = 11.0 # Breadth of arena (Along Z-axis)
+        self.wall_height = 0.5 # Height of walls
+        self.wall_width = 0.1 # Width of walls
+        self.homeX = 5.5 # X-position world->odom
+        self.homeY = 5.5 # Y-position world->odom
+        self.dtol = 0.05 # Distance tolerance for assessing state of the brick
+        self.tilt_angle = -0.1807 # Angle at which the brick slides off
+        self.platform_radius = 0.3 # Radius of turtle robot platform
+        self.unreachable = False # True if robot cannot reach the brick
 
-        # Broadcast brick frame
+        self.state = State.INITIAL # State of brick before it is placed
+
+        # Create broadcaster for transform world->brick.
         self.broadcaster = TransformBroadcaster(self)
+        
+        # Broadcast brick frame.
         world_brick_tf = TransformStamped()
         world_brick_tf.header.stamp = self.get_clock().now().to_msg()
         world_brick_tf.header.frame_id = "world"
@@ -86,16 +99,20 @@ class Arena(Node):
         world_brick_tf.transform.translation.z = self.brick_height
         self.broadcaster.sendTransform(world_brick_tf)
 
-        # We use TRANSIENT_LOCAL durability for the publisher. By setting both publisher and subscriber
-        # Durability to TRANSIENT_LOCAL we emulate the effect of "latched publishers" from ROS 1
-        # (See https://github.com/ros2/ros2/issues/464)
-        # Essentially this means that when subscribers first connect to the topic they receive the
-        # last message published on the topic. Useful for example because rviz might open after
-        # the initial markers are published
+        # Initialize Quality of Service.
         markerQoS = QoSProfile(depth=10, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+
+        # Publishers
+
+        # Create brick marker publisher.
         self.pub1 = self.create_publisher(Marker, "visualization_marker", markerQoS)
+
+        # Create wall publisher.
         self.ma_pub = self.create_publisher(MarkerArray, "visualization_marker_array", markerQoS)
-        # The second link is oriented at 90 degrees
+
+        # Markers
+        
+        # Specify brick marker parameters.
         self.m = Marker()
         self.m.header.frame_id = "brick"
         self.m.header.stamp = self.get_clock().now().to_msg()
@@ -113,11 +130,11 @@ class Arena(Node):
         self.m.color.g = 0.05
         self.m.color.b = 0.05
         self.m.color.a = 1.0
-        self.pub1.publish(self.m)
 
+        # Create marker array for four walls.
         self.walls = MarkerArray()
 
-        # North Wall
+        # North Wall.
         self.wall_north = Marker()
         self.wall_north.header.frame_id = "world"
         self.wall_north.header.stamp = self.get_clock().now().to_msg()
@@ -138,7 +155,7 @@ class Arena(Node):
 
         self.walls.markers.append(self.wall_north)
 
-        # South Wall
+        # South Wall.
         self.wall_south = Marker()
         self.wall_south.header.frame_id = "world"
         self.wall_south.header.stamp = self.get_clock().now().to_msg()
@@ -159,7 +176,7 @@ class Arena(Node):
 
         self.walls.markers.append(self.wall_south)
 
-        # West Wall
+        # West Wall.
         self.wall_west = Marker()
         self.wall_west.header.frame_id = "world"
         self.wall_west.header.stamp = self.get_clock().now().to_msg()
@@ -180,7 +197,7 @@ class Arena(Node):
 
         self.walls.markers.append(self.wall_west)
 
-        # East Wall
+        # East Wall.
         self.wall_east = Marker()
         self.wall_east.header.frame_id = "world"
         self.wall_east.header.stamp = self.get_clock().now().to_msg()
@@ -201,44 +218,43 @@ class Arena(Node):
 
         self.walls.markers.append(self.wall_east)
 
+        # Publish brick marker.
         self.pub1.publish(self.m)
+        
+        # Publish walls marker array.
         self.ma_pub.publish(self.walls)
 
-        self.frequency = 250.0
-        self.dt = 1/self.frequency
+        # Create timer.
+        self.frequency = 250.0 # Frequency 
+        self.dt = 1/self.frequency # Timestep
         self.tmr = self.create_timer(self.dt, self.timer_callback)
 
-        self.place = self.create_service(Place, "place", self.place_callback)
-        self.drop = self.create_service(Empty, "drop", self.drop_callback)
+        # Services
 
-    def callback(self, feedback):
-        """ Callback for interactive markers.  feedback contains the pose of the marker from rviz """
-        self.get_logger().info("Log")
-        w = feedback.pose.orientation.w
-        self.m.pose.position.x = 3*w
-        # self.m1.pose.position.x = -self.m.pose.position.x
-        self.m.action = Marker.MODIFY
-        # self.m1.action = Marker.MODIFY
-        self.m.header.stamp = self.get_clock().now().to_msg()
-        # self.m1.header.stamp = self.get_clock().now().to_msg()
-        self.pub1.publish(self.m)
-        # self.pub1.publish(self.m1)
-        self.get_logger().info("Logout")
+        # Places brick at desired location.
+        self.place = self.create_service(Place, "place", self.place_callback)
+
+        # Drops brick from placed position.
+        self.drop = self.create_service(Empty, "drop", self.drop_callback)
 
     def timer_callback(self):
 
+        """ Timer Callback for this node. Dictates motion of brick based on initialized parameters.
+        """
+
+        # Current time for every iteration.
         time = self.get_clock().now().to_msg()
 
+        # Before the brick is dropped, do nothing.
         if self.state == State.INITIAL:
 
-            # self.get_logger().info("Initial State")
-            self.wall_width = 0.5
+            pass
 
-
+        # After brick is placed, broadcast transform and publish marker.
         elif self.state == State.BRICK_PLACED:
 
-            # self.get_logger().info("Placed State")
-
+            # Broadcast world->brick transform and publish brick marker.
+            
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -252,12 +268,12 @@ class Arena(Node):
             self.m.header.stamp = time
             self.pub1.publish(self.m)
 
-            # self.walls.action = Marker.MODIFY
-            # self.walls.header.stamp = time
-            # self.ma_pub.publish(self.walls)
-
+        # When brick is falling, check if the brick is caught or if it's fallen on the ground.
         elif self.state == State.BRICK_DROPPED:
 
+            # Decide whether robot can reach the brick.
+            
+            # Speed required to reach the brick.
             speed_req = math.dist([self.brick_x, self.brick_y], [self.homeX, self.homeY]) / self.predicted_flight_time
 
             if self.speed >= speed_req:
@@ -268,15 +284,11 @@ class Arena(Node):
 
                 self.unreachable = True
 
-            # self.get_logger().info("Dropped State")
-
+            # Update height of falling brick.
             self.brick_height = self.brick_height + self.brick_heightvel * self.dt
             self.brick_heightvel = self.brick_heightvel - self.gravity * self.dt
 
-            self.flight_time = self.flight_time + self.dt
-
-            # self.get_logger().info(f"{self.brick_height} -- {self.flight_time} -- {self.predicted_flight_time}")
-
+            # If the robot can reach the brick, make brick stop at robot height.
             if self.brick_height <= self.platform_height and not self.unreachable:
 
                 self.brick_height = self.platform_height
@@ -285,12 +297,15 @@ class Arena(Node):
                 self.get_logger().info("Caught Brick")
 
 
+            # If robot can't reach the brick, make brick stop at ground.
             elif self.brick_height <= 0.0 and self.unreachable:
 
                 self.brick_height = 0.0
                 self.state = State.BRICK_FALLEN
                 self.get_logger().info("Brick Fell :(")
 
+            # Broadcast world->brick transform and publish brick marker.
+            
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -303,10 +318,6 @@ class Arena(Node):
             self.m.action = Marker.MODIFY
             self.m.header.stamp = time
             self.pub1.publish(self.m)
-
-            # self.walls.action = Marker.MODIFY
-            # self.walls.header.stamp = time
-            # self.ma_pub.publish(self.walls)
 
         elif self.state == State.BRICK_CAUGHT:
             
@@ -323,6 +334,9 @@ class Arena(Node):
                 self.state = State.BRICK_SLIDE
                 self.get_logger().info("Brick is ready to dump")
 
+            
+            # Broadcast world->brick transform and publish brick marker.
+            
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -336,19 +350,25 @@ class Arena(Node):
             self.m.header.stamp = time
             self.pub1.publish(self.m)
 
+        # When robot reaches home and tilts platform, make brick slide.
         elif self.state == State.BRICK_SLIDE:
 
+            # Update X and Z velocities according to sliding physics.
             self.brick_vx = self.brick_vx + math.cos(self.tilt_angle) * math.sin(self.tilt_angle) * self.gravity * self.dt
             self.brick_heightvel = self.brick_heightvel - math.sin(self.tilt_angle)**2 * self.gravity * self.dt
 
+            # Update X and Z position.
             self.brick_x = self.brick_x + self.brick_vx * self.dt
             self.brick_height = self.brick_height + self.brick_heightvel * self.dt
 
+            # Make brick freeze in air, after it slides off the platform.
             if math.dist([self.brick_x,self.brick_y],[self.homeX,self.homeY]) > 2 * self.platform_radius:
 
                 self.get_logger().info("Brick Dumped")
                 self.state = State.BRICK_FROZEN
 
+            # Broadcast world->brick transform and publish brick marker.
+            
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -358,13 +378,15 @@ class Arena(Node):
             world_brick_tf.transform.translation.z = self.brick_height
             world_brick_tf.transform.rotation = angle_axis_to_quaternion(self.tilt_angle, [0, 1, 0])
             self.broadcaster.sendTransform(world_brick_tf)
-
             self.m.action = Marker.MODIFY
             self.m.header.stamp = time
             self.pub1.publish(self.m)
 
+        # Make brick magically float in the air.
         elif self.state == State.BRICK_FROZEN:
 
+            # Broadcast world->brick transform and publish brick marker.
+            
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -373,15 +395,13 @@ class Arena(Node):
             world_brick_tf.transform.translation.y = self.brick_y
             world_brick_tf.transform.translation.z = self.brick_height
             self.broadcaster.sendTransform(world_brick_tf)
-
             self.m.action = Marker.MODIFY
             self.m.header.stamp = time
             self.pub1.publish(self.m)
 
+        # Make brick stationary if brick is on the floor.
         elif self.state == State.BRICK_FALLEN:
 
-            self.get_logger().info("Fallen State")
-
             world_brick_tf = TransformStamped()
             world_brick_tf.header.stamp = time
             world_brick_tf.header.frame_id = "world"
@@ -390,14 +410,16 @@ class Arena(Node):
             world_brick_tf.transform.translation.y = self.brick_y
             world_brick_tf.transform.translation.z = self.brick_height
             self.broadcaster.sendTransform(world_brick_tf)
-
             self.m.action = Marker.MODIFY
             self.m.header.stamp = time
             self.pub1.publish(self.m)
 
-
-
     def place_callback(self, request, response):
+        """ Place brick at desired position.
+
+            Args:
+                data (PoseStamped) : Time-stamped pose of target where the x and y positions correspond to the brick's location for catching, and the home position for returning.
+        """
 
         self.get_logger().info("Placing Brick")
 
