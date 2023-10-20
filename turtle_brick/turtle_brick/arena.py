@@ -1,5 +1,4 @@
-"""Draw robotic grippers using RVIZ markers and make them interactive. """
-
+"""Draw walls and brick that constitute the arena and govern physics of the brick. """
 
 import rclpy
 from rclpy.node import Node
@@ -204,63 +203,6 @@ class Arena(Node):
 
         self.pub1.publish(self.m)
         self.ma_pub.publish(self.walls)
-
-        # self.m1 = Marker()
-        # self.m1.header.frame_id = "brick"
-        # self.m1.header.stamp = self.get_clock().now().to_msg()
-        # self.m1.id = 2
-        # self.m1.type = Marker.CUBE
-        # self.m1.action = Marker.ADD
-        # self.m1.scale.x = 1.0
-        # self.m1.scale.y = 1.0
-        # self.m1.scale.z = 3.0
-        # self.m1.pose.position.x = -5.0
-        # self.m1.pose.position.y = 2.0
-        # self.m1.pose.position.z = -1.0
-        # self.m1.pose.orientation.x = .707
-        # self.m1.pose.orientation.y = 0.0
-        # self.m1.pose.orientation.z = 0.0
-        # self.m1.pose.orientation.w = .707
-        # self.m1.color.r = 1.0
-        # self.m1.color.g = 0.0
-        # self.m1.color.b = 0.0
-        # self.m1.color.a = 1.0
-        # self.pub1.publish(self.m1)
-
-        # self.server = InteractiveMarkerServer(self, "arena_marker")
-
-        # int_marker = InteractiveMarker()
-        # int_marker.header.frame_id = "brick"
-        # int_marker.name = "gripper"
-        # int_marker.description = "Move to open/close the gripper"
-        # int_marker.pose.orientation.w = .707
-        # int_marker.pose.orientation.z = .707
-
-        # box_marker = Marker()
-        # box_marker.type = Marker.SPHERE
-        # box_marker.scale.x = 0.5
-        # box_marker.scale.y = 0.5
-        # box_marker.scale.z = 0.5
-        # box_marker.color.r = 1.0
-        # box_marker.color.g = 0.0
-        # box_marker.color.b = 0.0
-        # box_marker.color.a = 1.0
-
-        # box_control = InteractiveMarkerControl()
-        # box_control.always_visible = True
-        # box_control.markers.append(box_marker)
-
-
-        # int_marker.controls.append(box_control)
-
-        # speed_control = InteractiveMarkerControl()
-        # speed_control.name = "move"
-        # speed_control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
-
-        # int_marker.controls.append(speed_control)
-
-        # self.server.insert(int_marker, feedback_callback=self.callback)
-        # self.server.applyChanges()
 
         self.frequency = 250.0
         self.dt = 1/self.frequency
