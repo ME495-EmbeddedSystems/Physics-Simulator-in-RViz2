@@ -1,0 +1,3 @@
+Many test failures and did not update package.xml from defaults
+Comments on ROS API should include the types as well as the name. Descriptions are incomplete 
+show_turtle.launch.xml does not take arguments or optionally launch joint_state_publisher
