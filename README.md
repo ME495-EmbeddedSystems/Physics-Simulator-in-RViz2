@@ -1,7 +1,8 @@
-# ME495 Embedded Systems Homework 2
-Author: Aditya Nair
+# `turtle_brick` package
 
-This package contains a kinematic simulation of a turtle robot moving around an arena to catch a brick falling from the sky, in rviz. The turtle is holonomic and returns to the home position after catching a brick. The 2-Dimensional location of the robot is also emulated in a turtlesim node.
+The `turtle_brick` package contains a kinematic simulation of a turtle robot moving around an arena to catch a brick falling from the sky, in `rviz2`. The turtle is holonomic and returns to the home position after catching a brick. The 2-Dimensional location of the robot is also emulated in a turtlesim node.
+
+***The intention behind doing this project was to gain familiarity with [`rviz2`](https://github.com/ros2/rviz) and the [`tf2`](https://docs.ros.org/en/foxy/Concepts/About-Tf2.html) library.***
 
 ## Quickstart
 1. Use `ros2 launch turtle_brick turtle_arena.launch.xml` to start the arena and turtle simulation
@@ -13,3 +14,5 @@ https://private-user-images.githubusercontent.com/59332714/276552837-f54f96b2-79
 4. Here is a video of the turtle when the brick cannot be caught
 
 https://private-user-images.githubusercontent.com/59332714/276553901-1458eff2-cade-4d4d-8414-a0f0bd452faf.webm?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE2OTc3MDcwMzksIm5iZiI6MTY5NzcwNjczOSwicGF0aCI6Ii81OTMzMjcxNC8yNzY1NTM5MDEtMTQ1OGVmZjItY2FkZS00ZDRkLTg0MTQtYTBmMGJkNDUyZmFmLndlYm0_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBSVdOSllBWDRDU1ZFSDUzQSUyRjIwMjMxMDE5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDIzMTAxOVQwOTEyMTlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT05MDE3N2EzMjFiYzc1MDg5OWUzZDlkZTY1N2IwZDVkNmRmZWY5NmE3MGZhYzIwYTJhYmM4ODY3YTlmOTUxYmI5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZhY3Rvcl9pZD0wJmtleV9pZD0wJnJlcG9faWQ9MCJ9.PscA72kBHrAaWhQtuvPgBnP1o7oRwnG1s1-nHncAQLQ
+
+Author: Aditya Nair
